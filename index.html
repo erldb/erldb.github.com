@@ -10,7 +10,7 @@
     <!--[if lt IE 9]>
     <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
     <![endif]-->
-    <title>Erldb by burbas</title>
+    <title>Erldb</title>
   </head>
 
   <body>
@@ -31,81 +31,118 @@
         <hr>
 
         <section id="main_content">
-          <h1>Erl_DB</h1>
+          <h1>erldb</h1>
 
 <p>ORM (Object-relational mapping) application implemented in Erlang.</p>
 
 <h1>Model files</h1>
 
-<p>Check 'testmodel.model' in the examples/ directory</p>
+<p>Check 'tags.erl' in the examples/ directory</p>
 
 <h1>Usage:</h1>
 
 <p>This is the example model that is in examples directory:</p>
 
-<pre><code> import: users, tags
+<pre><code>
+-backend(mnesia, []).
 
- name: blog_entry
- backend: mnesia
+-field(id, string, [primary_key]).
+-field(title, string, [{default, "Fancy title"}]).
+-field(text, string, []).
+-field(created, datetime, []).
 
- /* This is a test comment */
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Functions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+uppercase_title() ->
+    ic_util:to_uppercase(Title).
 
- fields:
-    id :: primary_key(auto_increment)
-    title :: string(max_length = 255, index)
-    author :: string(max_length = 100)
-    created :: datetime()
-    text :: string()
-</code></pre>
 
-<p>To get your workers they are stored as deps in rebar.config in our config we have a mnesia worker.</p>
 
-<pre><code>   {erl_db_mnesia, ",*", {git, "git@github.com:Taure/erl_db_mnesia.git", "master"}}
-</code></pre>
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% HOOKS
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-<p>This is a worker that help us to do basic things with mnesia to get it use:</p>
+%% Cancel update if text is undefined
+_pre_update(Object) ->
+    case Object#tags.text of
+        undefined ->
+            stop;
+        _ ->
+            {ok, Object}
+    end.
 
-<pre><code>    rebar get-deps
+%% Logs all updates
+_post_update(NewObject, UpdateRes) ->
+    {ok, FP} = file:open("update.log", [append]),
+    file:write(FP, NewObject),
+    file:write(FP, "\n"),
+    file:write(FP, UpdateRes),
+    file:write(FP, "\n=============\n"),
+    file:close(FP).
+
+%% Inserts a new object into the database if the title /= undefined
+_pre_insert(Object) ->
+    case Object#tags.title of
+        undefined ->
+            stop;
+        _ ->
+            {ok, Object}
+    end.
+
+_post_insert(Object) ->
+    case Object#tags.title of
+        "PHP" ->
+            stop;
+        _ ->
+            {ok, Object}
+    end.
+
+%% Disable all deletions
+_pre_delete(_Object) ->
+    stop.
+
+%% Disable all deletions
+_post_delete(Object) ->
+    stop.
 </code></pre>
 
 <p>To compile your code and to compile your models.</p>
 
-<pre><code>    rebar compile model
+<pre><code>
+$ make
+   APP    poolboy.app.src
+   APP    erldb.app.src
+  ./priv/compilemodel
+  model_path: "examples/"
+  ################## "Start compiling" ###################
+  file "tags.erl"
+  ################## "Done compiling" ###################
+
 </code></pre>
 
-<p>Then start a shell (I did it with erl -pa ebin -pa deps/*/ebin)</p>
+<p>Then start a shell </p>
 
-<pre><code>    Eshell V5.9.2  (abort with ^G)
-    1&gt; application:start(erl_db).
-    21:41:44.883 [info] Application lager started on node nonode@nohost
-    21:41:44.951 [info] Application mnesia started on node nonode@nohost
-    21:41:44.951 [info] Application erl_db started on node nonode@nohost
-    ok
+<pre><code>
+  $ erl -pa ebin/
+  Erlang R16B01 (erts-5.10.2) [source-bdf5300] [64-bit] [smp:4:4] [async-threads:10] [hipe] [kernel-poll:false]
+
+  Eshell V5.10.2  (abort with ^G)
+  1> rr("include/tags.hrl").
+  [tags]
+  2> A = #tags{}.
+  #tags{id = undefined,title = "Fancy title",text = undefined,
+        created = undefined}
+  3> A:uppercase_title().
+  "FANCY TITLE"
+  4>
 </code></pre>
 
-<p>Here you will see that mnesia is started. It is started in the worker so now we know that the worker is loaded. (Maybe we should say something like a log message)</p>
 
-<pre><code>    2&gt; FirstEntry = blog_entry:new(id, "My title", "Mr Imsobad", now(), "This is my first blog entry. And it is stored in mnesia. Hope I don't forget that").
-    {blog_entry,id,"My title","Mr Imsobad",
-                      {1361,393556,541209},
-                      "This is my first blog entry. And it is stored in mnesia. Hope I don't forget that"}
-</code></pre>
 
-<p>This is our first entry in our blog, now we will try to store it.</p>
-
-<pre><code>    3&gt; erl_db:create_table(blog_entry).
-    {atomic,ok}
-    4&gt; erl_db:save(FirstEntry).
-    {atomic,ok}
-    5&gt;  erl_db:find(blog_entry, 1).
-    {atomic,[{blog_entry,1,"My title","Mr Imsobad",
-                 {1361,469740,519505},
-                 "This is my first blog entry. And it is stored in mnesia. Hope I don't forget that"}]}
-</code></pre>
-        </section>
 
         <footer>
-          Erldb is maintained by <a href="https://github.com/burbas">burbas</a><br>
+          Erldb is maintained by <a href="https://github.com/burbas">burbas</a><br> and <a href="https://github.com/burbas">Taure</a><br>
           This page was generated by <a href="http://pages.github.com">GitHub Pages</a>. Tactile theme by <a href="http://twitter.com/jasonlong">Jason Long</a>.
         </footer>
 
